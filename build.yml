@@ -1,0 +1,39 @@
+---
+
+# To run:
+# AWS_PROFILE=gofore-crew ansible-playbook -i localhost, build.yml
+# See https://github.com/nathanpeck/aws-cloudformation-fargate
+
+- hosts: localhost
+  connection: local
+  become: false
+  vars:
+    cluster_id: fargate
+    # Fargate only supports us-east-1 for now
+    region: us-east-1
+  tasks:
+    - name: Create network stack (~4 minutes)
+      cloudformation:
+        stack_name: "{{ cluster_id }}-network"
+        state: present
+        region: "{{ region }}"
+        disable_rollback: false
+        template: fargate-networking-stacks/public-private-vpc.yml
+        tags:
+          ClusterId: "{{ cluster_id }}"
+          Owner: "vilsepi"
+
+    - name: Create service stack (~1 minute)
+      cloudformation:
+        stack_name: "{{ cluster_id }}-services"
+        state: present
+        region: "{{ region }}"
+        disable_rollback: false
+        template: service-stacks/private-subnet-public-loadbalancer.yml
+        template_parameters:
+          StackName: "{{ cluster_id }}-network"
+          ServiceName: nginx
+          ImageUrl: nginx
+        tags:
+          ClusterId: "{{ cluster_id }}"
+          Owner: "vilsepi"
